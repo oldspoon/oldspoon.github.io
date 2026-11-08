@@ -1,8 +1,7 @@
 "use client"
 
-import { Dithering } from "@paper-design/shaders-react"
 import { Moon, Sun } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import GridBackdrop from "@/components/ui/grid-backdrop"
 
 type Theme = "dark" | "light"
@@ -34,63 +33,11 @@ function readInitialTheme(): Theme {
   return document.documentElement.dataset.theme === "light" ? "light" : "dark"
 }
 
-function DitheringField({
-  isDarkMode,
-  reduceMotion,
-}: {
-  isDarkMode: boolean
-  reduceMotion: boolean
-}) {
-  const [rotation, setRotation] = useState(0)
-
-  useEffect(() => {
-    if (reduceMotion) {
-      setRotation(0)
-      return
-    }
-
-    let frame = 0
-    const started = performance.now()
-
-    const tick = (now: number) => {
-      // 4°/s, rounded to whole degrees so React only re-renders a few times a second.
-      setRotation(Math.floor(((now - started) / 1000) * 4) % 360)
-      frame = requestAnimationFrame(tick)
-    }
-
-    frame = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(frame)
-  }, [reduceMotion])
-
-  return (
-    <Dithering
-      style={{ height: "100%", width: "100%" }}
-      colorBack={isDarkMode ? "#09090b" : "hsl(0, 0%, 95%)"}
-      colorFront={isDarkMode ? "hsl(320, 100%, 70%)" : "hsl(220, 100%, 70%)"}
-      shape="swirl"
-      type="4x4"
-      size={3}
-      offsetX={0}
-      offsetY={0}
-      scale={0.8}
-      rotation={rotation}
-      speed={reduceMotion ? 0 : 0.1}
-    />
-  )
-}
-
 export default function PortfolioHero() {
   const [theme, setTheme] = useState<Theme>(readInitialTheme)
-  const [reduceMotion, setReduceMotion] = useState(false)
-
-  useEffect(() => {
-    const query = window.matchMedia("(prefers-reduced-motion: reduce)")
-    const sync = () => setReduceMotion(query.matches)
-
-    sync()
-    query.addEventListener("change", sync)
-    return () => query.removeEventListener("change", sync)
-  }, [])
+  // The spinning element is made of grid dots, so the grid needs to know where
+  // its box sits; the box itself stays empty and keeps the layout.
+  const swirlRegionRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const root = document.documentElement
@@ -217,15 +164,15 @@ export default function PortfolioHero() {
       </section>
 
       <div
+        ref={swirlRegionRef}
+        data-grid-swirl=""
         aria-hidden="true"
         className={`relative order-first h-[38vh] w-full overflow-hidden md:order-last md:h-auto md:min-h-screen md:w-1/2 ${
           isDarkMode ? "bg-[#09090b]" : "bg-white"
         }`}
-      >
-        <DitheringField isDarkMode={isDarkMode} reduceMotion={reduceMotion} />
-      </div>
+      />
 
-      <GridBackdrop theme={theme} />
+      <GridBackdrop theme={theme} swirlRegionRef={swirlRegionRef} />
     </div>
   )
 }

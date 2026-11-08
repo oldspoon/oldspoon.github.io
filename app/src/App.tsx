@@ -1,4 +1,4 @@
-import PortfolioHero from "@/components/ui/portfolio-hero-with-paper-shaders"
+import PortfolioHero from "@/components/ui/portfolio-hero"
 
 export default function App() {
   return (
