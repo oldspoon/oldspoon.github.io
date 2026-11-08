@@ -1,6 +1,6 @@
 # oldspoon.github.io
 
-Personal site: a monospace CV panel next to a spinning dot-matrix swirl.
+Personal site: a monospace CV panel next to a live Paper Shaders dither field.
 Rebuilt on a React + TypeScript + Tailwind stack with a shadcn-compatible
 structure. Content is based only on the previous site; the name and contact
 details are anonymized to the `oldspoon` handle, while each project keeps its
@@ -14,8 +14,8 @@ Build history, design decisions and deploy notes are in
 - React 19 + TypeScript, built with Vite 7
 - Tailwind CSS v4 (`@tailwindcss/vite`, no `tailwind.config.js`)
 - shadcn/ui layout: `components.json`, `@/` alias, `components/ui`, `lib/utils`
-- no shader runtime: the spinning swirl is drawn on the same 2D canvas as the
-  dot grid, with no WebGL; `lucide-react` for icons
+- [`@paper-design/shaders-react`](https://www.npmjs.com/package/@paper-design/shaders-react)
+  for the WebGL dither panel, `lucide-react` for icons
 
 ## Commands
 
@@ -41,8 +41,8 @@ app/
     App.tsx             # renders the hero
     index.css           # Tailwind import + base styles
     components/ui/
-      portfolio-hero.tsx     # CV panel, theme toggle, swirl box
-      grid-backdrop.tsx     # site-wide dot grid, swirl, flashlight
+      portfolio-hero-with-paper-shaders.tsx
+      grid-backdrop.tsx     # site-wide dot grid + flashlight
     lib/utils.ts        # cn() helper used by shadcn components
 components.json         # shadcn CLI config
 vite.config.ts          # root: app, single-file output, @ alias
@@ -72,42 +72,46 @@ npm run build
 The CLI reads `components.json` (style, CSS path, aliases) and writes into
 `app/src/components/ui`.
 
-## The spinning swirl
+## The shader panel
 
-The spinning element is not a separate panel or shader: it is a field of the
-same 8px grid dots, drawn by `grid-backdrop.tsx` inside the right-hand half of
-the page (and above the CV text below `md`). The hero component tells the grid
-where that box is with `swirlRegionRef`, so the swirl follows the layout.
+`Dithering` is a client-only WebGL component, kept exactly as it was: swirl
+shape, 4x4 dither, `size={3}`, `scale={0.8}`, pink `hsl(320, 100%, 70%)` on
+near-black and blue `hsl(220, 100%, 70%)` on near-white, rotating at 4°/s.
+`prefers-reduced-motion` stops the rotation and the shader motion (static
+frame remains). On narrow screens the panel moves above the CV text and keeps
+a fixed 38vh height.
 
-- Three log-spiral arms, ordered-dithered (4x4 Bayer) so the arms break into
-  square pixels instead of a smooth gradient.
-- It spins at about 5°/s. Hovering bends the arms around the pointer and
-  brightens the cells nearby; pressing and dragging spins it with the pointer,
-  and a flick keeps spinning for a moment after release.
-- On narrow viewports the swirl spans only a few dozen cells, so it is drawn
-  with brightness instead of a hard dither to stay legible.
-- `prefers-reduced-motion` stops the idle rotation and the bubble; dragging
-  still works there, because it is user-driven.
+The panel is not interactive in the DOM (`pointer-events: none`); the pointer
+acts on the artwork from window listeners instead:
+
+- **Lean.** While the pointer is inside the panel, the artwork leans toward it
+  by up to 16px and is drawn overscaled (1.06x) so the lean never exposes an
+  edge. Easing is 6/s; reduced motion turns the lean off.
+- **Spin.** Pressing inside the panel and dragging turns the vortex with the
+  pointer: the pointer's angle around the panel centre is applied to the
+  `rotation` prop, the angular speed is remembered, and a flick keeps turning
+  for a moment before easing back to the idle 4°/s. Rotation is sent as whole
+  degrees, so React still re-renders only a few times a second at rest.
+- **Crosshair.** The crosshair opens over the panel (arms at 1.35) like over a
+  link. `GridBackdrop` takes `vortexRegionRef` for that one hit test.
 
 ### Site-wide grid
 
 `components/ui/grid-backdrop.tsx` is a fixed, full-viewport canvas (z-20,
 `pointer-events: none`) that sits over the whole page, so the CV text, the
-project list and the swirl all share one grid:
+project list and the shader panel all share one grid:
 
 - a faint, always-on 8px dot grid of 2px square pixels in the violet accent
   (`#B897FB` on near-black, `#6D28D9` on white);
-- the spinning swirl described above;
 - a circular flashlight that follows the pointer anywhere on the site and
   reveals a brighter layer of the same dots through a soft scrim;
 - a bubble: while the pointer moves, the dots around it bulge outwards and
   settle back into the grid when it stops.
 
-Every dot is the same colour and size. Brightness is the only variable: the
-distance from the pointer sets how bright a dot is in the flashlight, and the
-swirl sets it inside its disc. There are no random accents, particles or spark
-effects. Content sits above the backdrop (`z-30`) and clicks pass straight
-through it.
+Every dot is the same colour and size. Only the distance from the pointer
+changes how bright a dot is, so there are no random accents and no particles
+or spark effects. Content sits above the backdrop (`z-30`) and clicks pass
+straight through it.
 
 ### Crosshair cursor
 
@@ -115,18 +119,19 @@ On fine-pointer devices the crosshair is the cursor, everywhere and at all
 times: `app/src/index.css` sets `cursor: none !important` on `html` and every
 descendant, so no element or user-agent style can bring the native cursor
 back. Its centre is the hot spot, so clicks land where it points. It opens up
-over links, buttons and the swirl (arms scale to 1.35), shrinks while the
-mouse is pressed, and labels the grid cell under the pointer. Touch devices
-are not affected. See
+over links and buttons (arms scale to 1.35), shrinks while the mouse is
+pressed, and labels the grid cell under the pointer. Touch devices are not
+affected. See
 [`docs/how-it-was-built.md`](docs/how-it-was-built.md#cursor) for details.
-`prefers-reduced-motion` turns off the swirl's idle rotation and the bubble,
-and switches the flashlight on and off instantly instead of easing it.
+`prefers-reduced-motion` turns off the shader rotation and the bubble, and
+switches the flashlight on and off instantly instead of easing it.
 
 ### Project links
 
 A project in the list is plain text; only `(demo)` and `(source)` are links.
 The project name does not link anywhere, so the list has exactly one link per
-reachable destination.
+reachable destination. The footer's `Projects` link points at
+`https://github.com/oldspoon?tab=repositories`, not at the in-page list.
 
 ## Deployment
 
