@@ -15,6 +15,9 @@ const FLASHLIGHT_RADIUS = 160
 // How far the dots around the pointer bulge outwards at full burst, so the
 // grid reads as a soft bubble around the cursor while it moves.
 const BUBBLE_PUSH = 14
+// Extra bubble push when the pointer is over the vortex, making it appear
+// as part of the cursor bubble grid.
+const VORTEX_BUBBLE_EXTRA = 12
 
 // Only devices with a precise hover pointer get the custom crosshair cursor.
 const FINE_POINTER_QUERY = "(hover: hover) and (pointer: fine)"
@@ -254,8 +257,10 @@ export default function GridBackdrop({ theme, vortexRegionRef }: GridBackdropPro
           const falloff = 1 - distance / radius
           const alpha = Math.pow(falloff, 0.4) * reveal * 0.85
           const push = reduceMotion ? 0 : pointer.burst * BUBBLE_PUSH * falloff
-          const offsetX = distance > 0 ? (dx / distance) * push : 0
-          const offsetY = distance > 0 ? (dy / distance) * push : 0
+          const extra = overVortex(pointer.x, pointer.y) ? VORTEX_BUBBLE_EXTRA : 0
+          const totalPush = push + extra
+          const offsetX = distance > 0 ? (dx / distance) * totalPush : 0
+          const offsetY = distance > 0 ? (dy / distance) * totalPush : 0
 
           ctx.fillStyle = `rgba(${palette.grid}, ${alpha})`
           ctx.fillRect(
